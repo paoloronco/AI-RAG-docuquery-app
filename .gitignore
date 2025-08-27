@@ -1,0 +1,32 @@
+# Python / venv / cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build artifacts (PyInstaller)
+build/
+dist/
+*.spec
+
+# App runtime
+faiss_index/
+*.log
+
+# Model caches (HF / ST)
+models/
+.cache/
+.huggingface/
+huggingface/
+sentence_transformers/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Env files / secrets
+.env
+.env.*
