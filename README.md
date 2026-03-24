@@ -8,7 +8,8 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 
 ## Table of Contents
 
-* [What’s New in v2.0](#whats-new-in-v20)
+* [What's New in v2.1](#whats-new-in-v21)
+* [What's New in v2.0](#whats-new-in-v20)
 * [Requirements](#requirements)
 * [Quick Start (Windows)](#quick-start-windows)
 * [Run From Source](#run-from-source)
@@ -28,7 +29,14 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 
 ---
 
-## What’s New in v2.0
+## What's New in v2.1
+
+* ✅ **Chat history** — all Q&A pairs are preserved in the session and displayed in order; each question is highlighted, answers scroll into view automatically.
+* ✅ **"Clear history" button** — wipe the conversation panel in one click.
+
+---
+
+## What's New in v2.0
 
 * ✅ **Clickable source links** now open local files directly from the results panel (handled via `anchorClicked` → `QDesktopServices.openUrl`).
 * ✅ **Hot‑swap LLM backend** without restarting the app (OpenAI ↔ HuggingFace local ↔ Citations‑only).
@@ -71,7 +79,14 @@ python app_qt.py
 
 > Note: On first launch, Windows SmartScreen may prompt a security warning. Click More info → Run anyway if you trust the binary.
 
+**macOS/Linux:**
 
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app_qt.py
+```
 
 ---
 
@@ -92,7 +107,8 @@ python app_qt.py
 * Type your question and click **Search and Answer**.
 * If similarity is high enough, the app uses your chosen LLM to write a **concise, cited answer**.
 * **Sources** show rank, filename, page and a **Open** link that launches the file with your default viewer.
-* If no LLM is selected (**No LLM**), you’ll see a *citations‑only* view with the closest passages.
+* If no LLM is selected (**No LLM**), you'll see a *citations‑only* view with the closest passages.
+* All Q&A pairs are preserved in the session — scroll up to review previous answers, or click **Clear history** to reset.
 
 ### LLM Backends
 
@@ -141,9 +157,9 @@ pyinstaller app_qt.py --name AI-RAG-docuquery --icon app-icon.ico --windowed --o
 
 ## Troubleshooting
 
-* **Missing DLL / app won’t start:** try the **onedir** build; ensure you run PyInstaller in the same venv where you installed requirements.
+* **Missing DLL / app won't start:** try the **onedir** build; ensure you run PyInstaller in the same venv where you installed requirements.
 * **OpenAI error:** set a valid `OPENAI_API_KEY` in the dialog (or env), optionally `OPENAI_BASE_URL` for compatible providers.
-* **“Index: — not found —”**: build the index in the **Indexing** tab or copy a prepared `faiss_index/` next to the executable and click **Reload index**.
+* **"Index: — not found —"**: build the index in the **Indexing** tab or copy a prepared `faiss_index/` next to the executable and click **Reload index**.
 * **HF Local model too slow / OOM:** try a smaller model id.
 * **PDF extraction issues:** PyMuPDF is used first, then pypdf as fallback. Problematic files will be logged as `[SKIP]`.
 
@@ -207,6 +223,11 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v2.1 — 2026‑03‑24
+
+* **Chat history** — Q&A pairs persist across questions in the same session, displayed as a scrollable timeline with auto-scroll to the latest answer.
+* **Clear history button** — resets the conversation panel without restarting the app.
 
 ### v2.0 — 2025‑08‑27
 

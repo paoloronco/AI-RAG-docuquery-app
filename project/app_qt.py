@@ -133,6 +133,7 @@ class App(QWidget):
     def __init__(self):
         super().__init__(); self.setWindowTitle("RAG Pro — FAISS GUI"); self.resize(1000, 720)
         self.retriever: Retriever | None = None; self.llm_backend = "none"; self.llm = NoLLM()
+        self._history: list[tuple[str, str]] = []; self._current_q = ""
 
         tabs = QTabWidget(self); v = QVBoxLayout(self); v.addWidget(tabs)
 
@@ -173,7 +174,10 @@ class App(QWidget):
         bSet = QPushButton("Apply"); bSet.clicked.connect(self.apply_llm); rowm.addWidget(bSet)
 
         self.inp = QTextEdit(); self.inp.setPlaceholderText("Type your question…"); c.addWidget(self.inp)
-        self.bAsk = QPushButton("Search and Answer"); self.bAsk.clicked.connect(self.ask); c.addWidget(self.bAsk)
+        row_ask = QHBoxLayout(); c.addLayout(row_ask)
+        self.bAsk = QPushButton("Search and Answer"); self.bAsk.clicked.connect(self.ask)
+        bClear = QPushButton("Clear history"); bClear.clicked.connect(self.clear_history)
+        row_ask.addWidget(self.bAsk, 1); row_ask.addWidget(bClear)
         self.out = QTextBrowser()
         # enable opening local files by clicking <a href="file:///...">
         self.out.setOpenExternalLinks(False)
@@ -296,14 +300,37 @@ class App(QWidget):
             except Exception:
                 QMessageBox.warning(self, "Missing index", "Reload or build the index first."); return
         if self.asker and self.asker.isRunning(): return
-        self.bAsk.setEnabled(False); self.out.setHtml("<i>Searching documents…</i>")
+        self._current_q = q
+        self.bAsk.setEnabled(False)
+        self._render_history(f"<i>Searching for: \"{q}\"…</i>")
         self.asker = AskThread(q, self.retriever, self.llm); self.asker.ready.connect(self.on_answer_ready); self.asker.error.connect(self.on_answer_error); self.asker.start()
 
     def on_answer_ready(self, html: str):
-        self.out.setHtml(html); self.bAsk.setEnabled(True); self.inp.clear(); self.inp.setFocus()
+        self._history.append((self._current_q, html))
+        self._render_history()
+        self.bAsk.setEnabled(True); self.inp.clear(); self.inp.setFocus()
 
     def on_answer_error(self, msg: str):
         QMessageBox.warning(self, "Error while answering", msg); self.bAsk.setEnabled(True); self.inp.setFocus()
+
+    def _render_history(self, pending: str = "") -> None:
+        parts = []
+        for q, a in self._history:
+            parts.append(
+                f"<div style='background:#f0f4ff;padding:6px 8px;margin-bottom:4px;border-radius:4px'>"
+                f"<b>Q:</b> {q}</div>"
+                f"<div style='padding:4px 8px'>{a}</div>"
+                f"<hr style='border:1px solid #ddd;margin:8px 0'>"
+            )
+        if pending:
+            parts.append(f"<div style='color:gray'>{pending}</div>")
+        self.out.setHtml("".join(parts))
+        sb = self.out.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def clear_history(self) -> None:
+        self._history.clear()
+        self.out.clear()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv); w = App(); w.show(); sys.exit(app.exec())
