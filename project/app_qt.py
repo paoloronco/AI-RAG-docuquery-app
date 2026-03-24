@@ -15,14 +15,23 @@ from retrieve import Retriever
 from llm_clients import NoLLM, OpenAIChat, HFLocal
 from config import EMBED_MODELS, INDEX_TYPES, LLM_BACKENDS, DEFAULTS, IndexConfig
 
-INDEX_DIR = Path("./faiss_index").resolve()
-
-# ---------------- app config helpers ----------------
-def app_config_path() -> Path:
+# ---------------- app config / index helpers ----------------
+def _rag_pro_dir() -> Path:
     if os.name == "nt":
-        base = Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming")))
-        return base / "RAG-Pro" / "config.json"
-    return Path.home() / ".rag-pro" / "config.json"
+        return Path(os.getenv("APPDATA", str(Path.home() / "AppData" / "Roaming"))) / "RAG-Pro"
+    return Path.home() / ".rag-pro"
+
+def app_config_path() -> Path:
+    return _rag_pro_dir() / "config.json"
+
+def indexes_base_dir() -> Path:
+    return _rag_pro_dir() / "indexes"
+
+def list_indexes() -> list[str]:
+    base = indexes_base_dir()
+    if not base.exists():
+        return []
+    return sorted([d.name for d in base.iterdir() if d.is_dir() and (d / "index.faiss").exists()])
 
 def load_config() -> dict:
     p = app_config_path()
@@ -41,12 +50,12 @@ def save_config(cfg: dict) -> None:
 # ---------------- Index worker ----------------
 class IndexThread(QThread):
     status = pyqtSignal(str); progress = pyqtSignal(int); done = pyqtSignal(int, int)
-    def __init__(self, folder: Path, cfg: IndexConfig):
-        super().__init__(); self.folder = folder; self.cfg = cfg; self._cancel = False
+    def __init__(self, folder: Path, index_dir: Path, cfg: IndexConfig):
+        super().__init__(); self.folder = folder; self.index_dir = index_dir; self.cfg = cfg; self._cancel = False
     def cancel(self): self._cancel = True
     def run(self):
         def should_cancel(): return self._cancel
-        idx = Indexer(INDEX_DIR, self.cfg, on_status=self.status.emit, on_progress=self.progress.emit, should_cancel=should_cancel)
+        idx = Indexer(self.index_dir, self.cfg, on_status=self.status.emit, on_progress=self.progress.emit, should_cancel=should_cancel)
         files, vecs = idx.build(self.folder); self.done.emit(files, vecs)
 
 # ---------------- Ask worker ----------------
@@ -144,6 +153,10 @@ class App(QWidget):
         bPick = QPushButton("Browse…"); bPick.clicked.connect(self.pick_folder)
         row.addWidget(QLabel("Folder:")); row.addWidget(self.eFolder,1); row.addWidget(bPick)
 
+        row_name = QHBoxLayout(); l.addLayout(row_name)
+        self.eIndexName = QLineEdit(); self.eIndexName.setPlaceholderText("Index name (e.g. contracts, manual-2024…)")
+        row_name.addWidget(QLabel("Index name:")); row_name.addWidget(self.eIndexName, 1)
+
         row2 = QHBoxLayout(); l.addLayout(row2)
         self.cbEmbed = QComboBox(); [self.cbEmbed.addItem(v["display"], k) for k,v in EMBED_MODELS.items()]
         self.cbIndex = QComboBox(); [self.cbIndex.addItem(lbl, key) for key,lbl in INDEX_TYPES]
@@ -161,9 +174,14 @@ class App(QWidget):
         # Tab: Chat
         w_chat = QWidget(); tabs.addTab(w_chat, "Chat"); c = QVBoxLayout(w_chat)
         top = QHBoxLayout(); c.addLayout(top)
-        self.lblIndex = QLabel(self.index_status_text())
-        self.bReload = QPushButton("Reload index"); self.bReload.clicked.connect(self.reload_index)
-        top.addWidget(self.lblIndex); top.addWidget(self.bReload)
+        self.cbIndexSel = QComboBox()
+        bRefreshIdx = QPushButton("↻"); bRefreshIdx.setFixedWidth(30); bRefreshIdx.setToolTip("Refresh index list")
+        bRefreshIdx.clicked.connect(self._refresh_index_combo)
+        self.bReload = QPushButton("Load index"); self.bReload.clicked.connect(self.reload_index)
+        top.addWidget(QLabel("Index:")); top.addWidget(self.cbIndexSel, 1); top.addWidget(bRefreshIdx); top.addWidget(self.bReload)
+        self.lblIndex = QLabel("—"); c.addWidget(self.lblIndex)
+        self._refresh_index_combo()
+        self.cbIndexSel.currentIndexChanged.connect(lambda _: setattr(self, "retriever", None))
 
         rowm = QHBoxLayout(); c.addLayout(rowm)
         self.cbLLM = QComboBox(); [self.cbLLM.addItem(lbl, key) for key,lbl in LLM_BACKENDS]
@@ -238,7 +256,10 @@ class App(QWidget):
     # ---------- Indexing ----------
     def pick_folder(self):
         d = QFileDialog.getExistingDirectory(self, "Select a folder to index")
-        if d: self.eFolder.setText(d)
+        if d:
+            self.eFolder.setText(d)
+            if not self.eIndexName.text().strip():
+                self.eIndexName.setText(Path(d).name)
 
     def start_index(self):
         if self.worker and self.worker.isRunning():
@@ -246,11 +267,15 @@ class App(QWidget):
         folder = self.eFolder.text().strip()
         if not folder:
             QMessageBox.warning(self, "Attention", "Please choose a folder."); return
+        index_name = self.eIndexName.text().strip()
+        if not index_name:
+            QMessageBox.warning(self, "Attention", "Please enter an index name."); return
+        index_dir = indexes_base_dir() / index_name
         cfg = IndexConfig(embed_model=self.cbEmbed.currentData(), index_type=self.cbIndex.currentData())
-        self.worker = IndexThread(Path(folder), cfg)
+        self.worker = IndexThread(Path(folder), index_dir, cfg)
         self.worker.status.connect(self.log.append); self.worker.progress.connect(self.on_progress_update); self.worker.done.connect(self.index_done)
         self.bIndex.setEnabled(False); self.bCancel.setEnabled(True)
-        self.log.append(f"\n— Starting indexing → {folder}"); self.prog.setRange(0,0); self.worker.start()
+        self.log.append(f"\n— Starting indexing [{index_name}] → {folder}"); self.prog.setRange(0,0); self.worker.start()
 
     def on_progress_update(self, p:int):
         if self.prog.minimum()==0 and self.prog.maximum()==0: self.prog.setRange(0,100)
@@ -261,20 +286,32 @@ class App(QWidget):
 
     def index_done(self, files:int, vecs:int):
         self.bIndex.setEnabled(True); self.bCancel.setEnabled(False); self.prog.setRange(0,100); self.prog.setValue(100)
-        self.log.append(f"\n✅ Completed. Files indexed: {files} • Vectors: {vecs}")
-        self.lblIndex.setText(self.index_status_text()); self.retriever=None
+        name = self.eIndexName.text().strip()
+        self.log.append(f"\n✅ Completed [{name}]. Files indexed: {files} • Vectors: {vecs}")
+        self.retriever = None
+        self._refresh_index_combo(select=name)
 
     # ---------- Chat ----------
-    def index_status_text(self) -> str:
-        idx = INDEX_DIR/"index.faiss"; return f"Index: {idx}" if idx.exists() else "Index: — not found —"
+    def _refresh_index_combo(self, select: str = "") -> None:
+        current = select or self.cbIndexSel.currentText()
+        self.cbIndexSel.clear()
+        for name in list_indexes():
+            self.cbIndexSel.addItem(name)
+        if current and self.cbIndexSel.findText(current) >= 0:
+            self.cbIndexSel.setCurrentText(current)
 
     def reload_index(self):
+        name = self.cbIndexSel.currentText()
+        if not name:
+            QMessageBox.warning(self, "No index", "No indexes available. Build one first."); return
+        index_dir = indexes_base_dir() / name
         try:
-            self.retriever = Retriever(INDEX_DIR)
-            self.lblIndex.setText(self.index_status_text()+f"  • vectors={self.retriever.idx.ntotal}  • embed={self.retriever.embed_model}")
-            QMessageBox.information(self, "OK", "Index reloaded.")
+            self.retriever = Retriever(index_dir)
+            self.lblIndex.setText(f"Loaded: {name}  • vectors={self.retriever.idx.ntotal}  • embed={self.retriever.embed_model}")
+            QMessageBox.information(self, "OK", f"Index '{name}' loaded.")
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Could not find a valid index.\n{e}")
+            self.lblIndex.setText(f"Error loading '{name}'")
+            QMessageBox.warning(self, "Error", f"Could not load index '{name}'.\n{e}")
 
     def apply_llm(self):
         kind = self.cbLLM.currentData(); name = self.eModelName.text().strip() or ""
@@ -296,9 +333,12 @@ class App(QWidget):
         if not q:
             QMessageBox.warning(self, "Empty field", "Please type a question."); return
         if self.retriever is None:
-            try: self.retriever = Retriever(INDEX_DIR)
+            name = self.cbIndexSel.currentText()
+            if not name:
+                QMessageBox.warning(self, "Missing index", "No index selected. Build or load one first."); return
+            try: self.retriever = Retriever(indexes_base_dir() / name)
             except Exception:
-                QMessageBox.warning(self, "Missing index", "Reload or build the index first."); return
+                QMessageBox.warning(self, "Missing index", f"Could not load index '{name}'."); return
         if self.asker and self.asker.isRunning(): return
         self._current_q = q
         self.bAsk.setEnabled(False)

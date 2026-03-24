@@ -8,6 +8,7 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 
 ## Table of Contents
 
+* [What's New in v2.2](#whats-new-in-v22)
 * [What's New in v2.1](#whats-new-in-v21)
 * [What's New in v2.0](#whats-new-in-v20)
 * [Requirements](#requirements)
@@ -26,6 +27,15 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 * [License](#license)
 * [Changelog](#changelog)
 * [Roadmap](#roadmap)
+
+---
+
+## What's New in v2.2
+
+* ✅ **Multi-index support** — create and manage multiple named indexes (e.g. `contracts`, `manual-2024`). Each index is stored independently under `%APPDATA%/RAG-Pro/indexes/<name>/`.
+* ✅ **Index name field** — assign a name when building; auto-filled from the folder name.
+* ✅ **Index selector** — Chat tab shows a dropdown with all available indexes; switch dataset without restarting the app.
+* ✅ **Refresh button (↻)** — rescan the indexes directory without restarting.
 
 ---
 
@@ -223,6 +233,13 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v2.2 — 2026‑03‑24
+
+* **Multi-index support** — indexes saved under `%APPDATA%/RAG-Pro/indexes/<name>/`; each fully independent.
+* **Index name field** in Indexing tab — auto-filled from folder name, fully editable.
+* **Index selector dropdown** in Chat tab — switch between datasets on the fly; changing selection auto-unloads current retriever.
+* **Refresh button (↻)** — rescans the indexes directory without restarting.
 
 ### v2.1 — 2026‑03‑24
 
