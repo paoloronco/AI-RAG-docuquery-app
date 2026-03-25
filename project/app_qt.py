@@ -7,8 +7,71 @@ from PyQt6.QtWidgets import (
     QTextEdit, QFileDialog, QProgressBar, QComboBox, QMessageBox, QLineEdit, QTextBrowser,
     QDialog, QFormLayout, QDialogButtonBox, QCheckBox
 )
-from PyQt6.QtCore import QThread, pyqtSignal, QUrl
-from PyQt6.QtGui import QDesktopServices, QIcon
+from PyQt6.QtCore import QThread, pyqtSignal, QUrl, QByteArray
+from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
+
+# ── embedded app icon (256×256 PNG, base64) ──────────────────────────────────
+_ICON_B64 = (
+    "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"
+)
+
+def _app_icon() -> QIcon:
+    data = QByteArray.fromBase64(_ICON_B64.encode())
+    px = QPixmap()
+    px.loadFromData(data, "PNG")
+    return QIcon(px)
 
 from indexer import Indexer
 from retrieve import Retriever
@@ -446,11 +509,9 @@ class App(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    icon_path = Path(__file__).parent.parent / "app-icon.ico"
-    if icon_path.exists():
-        app.setWindowIcon(QIcon(str(icon_path)))
+    icon = _app_icon()
+    app.setWindowIcon(icon)
     w = App()
-    if icon_path.exists():
-        w.setWindowIcon(QIcon(str(icon_path)))
+    w.setWindowIcon(icon)
     w.show()
     sys.exit(app.exec())
