@@ -1,101 +1,28 @@
-# AI‑RAG‑docuquery
+# AI-RAG-docuquery
 
-An **AI‑powered document search app** using **FAISS** for vector search and **Retrieval‑Augmented Generation (RAG)**. Index your local documents, ask natural‑language questions, and get source‑grounded answers with clickable citations.
+An **AI-powered document search app** using **FAISS** for vector search and **Retrieval-Augmented Generation (RAG)**. Index your local documents, ask natural-language questions, and get source-grounded answers with clickable citations.
 
-> GUI: **PyQt6** • Embeddings: **Sentence‑Transformers (E5/MiniLM)** • LLM backends: **OpenAI / compatible**, **Anthropic Claude**, **Local HuggingFace**, or **No LLM (citations‑only)**.
-
----
-
-## Table of Contents
-
-* [What's New in v2.5](#whats-new-in-v25)
-* [What's New in v2.4](#whats-new-in-v24)
-* [What's New in v2.3](#whats-new-in-v23)
-* [What's New in v2.2](#whats-new-in-v22)
-* [What's New in v2.1](#whats-new-in-v21)
-* [What's New in v2.0](#whats-new-in-v20)
-* [Requirements](#requirements)
-* [Quick Start (Windows)](#quick-start-windows)
-* [Run From Source](#run-from-source)
-* [Usage](#usage)
-
-  * [Index Documents](#index-documents)
-  * [Chat & Answers](#chat--answers)
-  * [LLM Backends](#llm-backends)
-  * [Config Persistence](#config-persistence)
-* [Build a Windows EXE](#build-a-windows-exe)
-* [Troubleshooting](#troubleshooting)
-* [Project Structure](#project-structure)
-* [Screenshots](#screenshots)
-* [License](#license)
-* [Changelog](#changelog)
-* [Roadmap](#roadmap)
+> **GUI:** PyQt6 &nbsp;|&nbsp; **Embeddings:** Sentence-Transformers (E5/MiniLM) &nbsp;|&nbsp; **LLM backends:** OpenAI, Anthropic Claude, Local HuggingFace, or No LLM (citations-only)
 
 ---
 
-## What's New in v2.5
+## What's New in v2.6
 
-* ✅ **Cross-encoder re-ranking** — checkbox "Re-rank results" in the Chat tab. Uses `cross-encoder/ms-marco-MiniLM-L-6-v2` to re-score retrieved passages for higher accuracy. Model downloads ~25 MB on first use; loaded lazily, freed when disabled.
-* ✅ **Answer language selector** — dropdown next to the checkbox: Auto-detect, English, Italiano, Français, Español, Deutsch. Replaces the hardcoded English-only prompt.
-* ✅ **Updated OpenAI models** — preset list now includes `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini`, `o3-mini`.
-
----
-
-## What's New in v2.4
-
-* ✅ **Manage indexes** — new section at the bottom of the Indexing tab: select any index from a dropdown, then **Rename…** or **Delete** it. Delete asks for confirmation before removing all files permanently. Rename validates the new name and keeps the Chat tab selector in sync.
+- **Ctrl+Enter** to submit a question — no need to click the button.
+- **Copy answer** button — copies full chat output to clipboard.
+- **Export chat** — saves conversation as `.md` or `.txt`.
+- **Thinking… indicator** — animated label while the LLM generates.
+- **Status bar** — persistent bar showing active index, LLM backend, and re-rank state.
 
 ---
 
-## What's New in v2.3
+## Quick Start
 
-* ✅ **Anthropic Claude backend** — new LLM option: choose between `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-6` or any custom model id. API key stored securely with optional "Remember" toggle (same pattern as OpenAI).
+**Download** the latest `.exe` from [Releases](../../releases) and double-click to run.
 
----
+> On first launch, Windows SmartScreen may show a warning — click **More info → Run anyway**.
 
-## What's New in v2.2
-
-* ✅ **Multi-index support** — create and manage multiple named indexes (e.g. `contracts`, `manual-2024`). Each index is stored independently under `%APPDATA%/RAG-Pro/indexes/<name>/`.
-* ✅ **Index name field** — assign a name when building; auto-filled from the folder name.
-* ✅ **Index selector** — Chat tab shows a dropdown with all available indexes; switch dataset without restarting the app.
-* ✅ **Refresh button (↻)** — rescan the indexes directory without restarting.
-
----
-
-## What's New in v2.1
-
-* ✅ **Chat history** — all Q&A pairs are preserved in the session and displayed in order; each question is highlighted, answers scroll into view automatically.
-* ✅ **"Clear history" button** — wipe the conversation panel in one click.
-
----
-
-## What's New in v2.0
-
-* ✅ **Clickable source links** now open local files directly from the results panel (handled via `anchorClicked` → `QDesktopServices.openUrl`).
-* ✅ **Hot‑swap LLM backend** without restarting the app (OpenAI ↔ HuggingFace local ↔ Citations‑only).
-* ✅ **OpenAI setup dialog** with **model picker** (presets + custom), optional **Base URL** (for compatible endpoints), and **remember** toggle.
-* ✅ **Working local AI (HF local)** support to Hugging Face local AI
-* ✅ **Removed llama.cpp / GGUF** support to simplify setup and reduce build complexity.
-* ✅ **More relevant results** support to simplify setup and reduce build complexity.
-
-
----
-
-## Requirements
-
-* **Python 3.10–3.12** (recommended 3.11/3.12)
-* Windows 10/11 (tested). macOS/Linux should also run from source.
-* Packages: see `requirements.txt`
-
-  * PyQt6, faiss‑cpu, sentence‑transformers, transformers, torch, pymupdf, pypdf, pandas, openai, etc.
-
-> Note: Sentence‑Transformers models are downloaded on first use and cached in your HF cache. You can pre‑download and bundle them; see **Build** and **Troubleshooting**.
-
----
-
-## Run From Source
-
-**Windows (PowerShell):**
+**Or run from source:**
 
 ```powershell
 python3 -m venv .venv
@@ -104,206 +31,203 @@ pip install -r requirements.txt
 python app_qt.py
 ```
 
-## Run the prebuilt EXE (Windows)
+---
 
-* Download the prebuilt AI-RAG-docuquery.exe from the GitHub Releases page, or
-* Use the local build you created with PyInstaller (found at dist/AI-RAG-docuquery.exe).
-* Just double‑click the EXE to launch the app.
+## Features
 
-> Note: On first launch, Windows SmartScreen may prompt a security warning. Click More info → Run anyway if you trust the binary.
-
-**macOS/Linux:**
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app_qt.py
-```
+| Feature | Details |
+|---|---|
+| Multi-format indexing | PDF, DOCX, PPTX, XLSX, TXT, CSV, MD |
+| Hybrid search | Dense (FAISS) + sparse (BM25) retrieval |
+| Cross-encoder re-ranking | Optional re-ranking checkbox in Chat tab |
+| Multiple LLM backends | OpenAI, Anthropic Claude, HuggingFace local, or none |
+| Multi-index support | Create, switch, rename, and delete named indexes |
+| Persistent chat history | Q&A pairs preserved per session with clear button |
+| Clickable citations | Source links open files with default viewer |
+| Answer language | Auto-detect or force a specific language |
+| Ctrl+Enter shortcut | Submit question without clicking the button |
+| Copy answer | Copy the full answer to clipboard with one click |
+| Export chat | Save the conversation as `.md` or `.txt` |
+| Thinking indicator | Animated "Thinking…" label while the LLM generates |
+| Status bar | Shows active index, backend, and re-rank state |
 
 ---
 
 ## Usage
 
-### Index Documents
+### 1. Index Documents
 
 1. Open the **Indexing** tab.
-2. **Folder → Browse…** and pick a directory containing PDFs / DOCX / PPTX / XLSX / TXT / CSV / MD.
-3. Choose **Embedding** and **Index** type (default is good).
-4. Click **Build index**. Progress and logs appear below.
-5. When done, switch to **Chat**.
+2. Click **Browse…** and pick a folder (PDF / DOCX / PPTX / XLSX / TXT / CSV / MD).
+3. Give your index a name (auto-filled from folder name).
+4. Click **Build index** — progress appears in the log below.
 
-> Index location: `./faiss_index` (contains `index.faiss`, `meta.jsonl`, `index.json`).
+### 2. Chat & Answers
 
-### Chat & Answers
+1. Switch to the **Chat** tab, select your index from the dropdown.
+2. Type a question and click **Search and Answer**.
+3. The app retrieves relevant passages and (if an LLM is configured) generates a cited answer.
+4. **Sources** show rank, filename, page, and an **Open** link.
 
-* Type your question and click **Search and Answer**.
-* If similarity is high enough, the app uses your chosen LLM to write a **concise, cited answer**.
-* **Sources** show rank, filename, page and a **Open** link that launches the file with your default viewer.
-* If no LLM is selected (**No LLM**), you'll see a *citations‑only* view with the closest passages.
-* All Q&A pairs are preserved in the session — scroll up to review previous answers, or click **Clear history** to reset.
+### 3. LLM Backends
 
-### LLM Backends
+| Backend | How to configure |
+|---|---|
+| **No LLM** | Select in dropdown — shows retrieved passages only |
+| **OpenAI / compatible** | Dialog: API key, optional Base URL, model picker |
+| **Anthropic Claude** | Dialog: API key (`sk-ant-…`), model picker |
+| **Local HuggingFace** | Enter a model id (e.g. `Qwen/Qwen2.5-0.5B-Instruct`) |
 
-* **No LLM (citations‑only)** → Fastest, shows retrieved passages only.
-* **OpenAI / compatible** → Choose backend, a dialog pops up:
+All credentials can be saved with the **Remember** toggle.
 
-  * Enter **API key**, optional **Base URL**, and pick a **model** (e.g. `gpt-4o-mini`).
-  * Optionally **Remember** to save into local config (see below).
-  * Applied immediately; no restart.
-* **Anthropic Claude** → A dialog pops up: enter your **API key** (`sk-ant-…`), pick a model (`claude-haiku-4-5`, `claude-sonnet-4-6`, etc.), optionally **Remember**.
-* **Local HuggingFace** → Enter a model id (e.g. `Qwen/Qwen2.5-0.5B-Instruct`).
+### 4. Manage Indexes
 
-  * Runs on CPU by default; uses GPU automatically if available (`torch.cuda.is_available()`).
-
-### Config Persistence
-
-Local config file used for OpenAI credentials and defaults:
-
-* **Windows:** `%APPDATA%/RAG-Pro/config.json`
-* **macOS/Linux:** `~/.rag-pro/config.json`
+At the bottom of the Indexing tab: select an index from the **Manage index** dropdown, then **Rename…** or **Delete** it.
 
 ---
 
-## Build a Windows EXE
+## Requirements
 
-> Use **onedir** for maximum robustness with native DLLs; **onefile** works too but may have longer startup time.
+- Python 3.10–3.12 (recommended 3.11/3.12)
+- Windows 10/11 (macOS/Linux supported from source)
+- See `requirements.txt` for full package list
 
-**One‑file (single .exe):**
+> Sentence-Transformers models download on first use (~100 MB) and are cached in your HF cache directory.
+
+---
+
+<details>
+<summary><strong>Build a Windows EXE</strong></summary>
+
+> Use **onedir** for maximum robustness with native DLLs; **onefile** works too but has a longer startup time.
+
+**One-file (single .exe):**
 
 ```powershell
 pyinstaller app_qt.py --name AI-RAG-docuquery --icon app-icon.ico --onefile --noconsole --noconfirm --collect-all sentence_transformers --collect-all transformers --collect-all torch --collect-all faiss --collect-all pymupdf --collect-submodules fitz
 ```
 
-**One‑dir (folder, more reliable):**
+**One-dir (folder, more reliable):**
 
 ```powershell
 pyinstaller app_qt.py --name AI-RAG-docuquery --icon app-icon.ico --windowed --onedir --noconfirm --collect-all sentence_transformers --collect-all transformers --collect-all torch --collect-all faiss --collect-all pymupdf --collect-submodules fitz
 ```
 
-**Optional: ship a prebuilt FAISS index**
+**Optional — ship a prebuilt FAISS index:**
 
 ```powershell
 ... --add-data "faiss_index;faiss_index"
 ```
 
----
+</details>
 
-## Troubleshooting
+<details>
+<summary><strong>Troubleshooting</strong></summary>
 
-* **Missing DLL / app won't start:** try the **onedir** build; ensure you run PyInstaller in the same venv where you installed requirements.
-* **OpenAI error:** set a valid `OPENAI_API_KEY` in the dialog (or env), optionally `OPENAI_BASE_URL` for compatible providers.
-* **"Index: — not found —"**: build the index in the **Indexing** tab or copy a prepared `faiss_index/` next to the executable and click **Reload index**.
-* **HF Local model too slow / OOM:** try a smaller model id.
-* **PDF extraction issues:** PyMuPDF is used first, then pypdf as fallback. Problematic files will be logged as `[SKIP]`.
+| Problem | Fix |
+|---|---|
+| Missing DLL / app won't start | Use the **onedir** build; run PyInstaller inside the same venv |
+| OpenAI error | Enter a valid API key in the dialog; set `OPENAI_BASE_URL` for compatible providers |
+| `Index: — not found —` | Build an index in the Indexing tab first |
+| HF Local model too slow / OOM | Try a smaller model id |
+| PDF extraction issues | PyMuPDF is tried first, then pypdf. Problematic files appear as `[SKIP]` in the log |
 
----
+</details>
 
-## Project Structure
+<details>
+<summary><strong>Project Structure</strong></summary>
 
 ```
 project/
-│──check_cuda.py       # Utility script to check CUDA availability
-├─ app_qt.py              # PyQt6 GUI
-├─ indexer.py             # builds FAISS index from local files
-├─ retrieve.py            # hybrid search (dense + optional BM25 mixing)
-├─ loaders.py             # file loaders: PDF, DOCX, PPTX, XLSX, TXT, CSV, MD
-├─ llm_clients.py         # NoLLM, OpenAI, HF Local
-├─ config.py              # presets, defaults, index/embedding choices
-├─ requirements.txt
-└─ faiss_index/           # generated at runtime (index.faiss, meta.jsonl, index.json)
+├── app_qt.py         # PyQt6 GUI
+├── indexer.py        # Builds FAISS index from local files
+├── retrieve.py       # Hybrid search (dense + BM25 + cross-encoder re-ranking)
+├── loaders.py        # File loaders: PDF, DOCX, PPTX, XLSX, TXT, CSV, MD
+├── llm_clients.py    # NoLLM, OpenAI, Anthropic, HF Local
+├── config.py         # Presets, defaults, index/embedding choices
+├── requirements.txt
+└── check_cuda.py     # Utility: check CUDA availability
 ```
 
----
+Config & indexes stored in:
+- **Windows:** `%APPDATA%/RAG-Pro/`
+- **macOS/Linux:** `~/.rag-pro/`
 
-## Screenshots
+</details>
 
-> *Place your screenshots here*
+<details>
+<summary><strong>Changelog</strong></summary>
 
-* Indexing tab
+### v2.6 — 2026-03-25
+- **Ctrl+Enter** — submit question from keyboard without clicking the button.
+- **Copy answer** — button copies the full chat output to clipboard.
+- **Export chat** — saves the conversation as `.md` or `.txt` via a file dialog.
+- **Thinking indicator** — animated "Thinking…" label while the LLM generates a response.
+- **Status bar** — permanent bar at the bottom showing: active index + vector count, LLM backend, re-rank on/off.
 
-  ![Indexing](docs/screenshot-indexing.png)
+### v2.5 — 2026-03-25
+- **Cross-encoder re-ranking** — "Re-rank results" checkbox; lazy-loads `cross-encoder/ms-marco-MiniLM-L-6-v2` (~25 MB) on first use, freed when disabled.
+- **Answer language selector** — Auto-detect / English / Italiano / Français / Español / Deutsch.
+- **Updated OpenAI presets** — `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini`, `o3-mini`.
 
-* Chat tab (answer with sources)
+### v2.4 — 2026-03-25
+- **Index management** — Rename and Delete buttons in the Indexing tab; confirmation before delete; Chat selector stays in sync.
 
-  ![Chat](docs/screenshot-chat.png)
+### v2.3 — 2026-03-25
+- **Anthropic Claude backend** — dialog for API key + model selection; supports `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-6` and custom ids. Config persisted with optional Remember toggle.
 
----
+### v2.2 — 2026-03-24
+- **Multi-index support** — indexes saved under `%APPDATA%/RAG-Pro/indexes/<name>/`.
+- **Index selector dropdown** in Chat tab — switch datasets on the fly.
+- **Refresh button (↻)** — rescans indexes directory without restarting.
 
-## License
+### v2.1 — 2026-03-24
+- **Chat history** — Q&A pairs persist per session; auto-scroll to latest answer.
+- **Clear history button** — resets the conversation panel.
 
-MIT License
-
-Copyright (c) 2025 Paolo Ronco
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
----
-
-## Changelog
-
-### v2.5 — 2026‑03‑25
-
-* **Cross-encoder re-ranking** — "Re-rank results" checkbox in Chat tab; lazy-loads `cross-encoder/ms-marco-MiniLM-L-6-v2` on first use (~25 MB), freed on disable.
-* **Answer language** — dropdown: Auto-detect / English / Italiano / Français / Español / Deutsch.
-* **Updated OpenAI presets** — `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini`, `o3-mini`.
-
-### v2.4 — 2026‑03‑25
-
-* **Index management** — Rename and Delete buttons in the Indexing tab. Confirmation dialog before delete. Both operations keep the Chat index selector in sync and unload the retriever if the active index is affected.
-
-### v2.3 — 2026‑03‑25
-
-* **Anthropic Claude backend** — new dialog for API key + model selection; supports `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-6` and custom model ids. Config persisted to `config.json` with optional "Remember" toggle.
-* **`anthropic` package** added to `requirements.txt`.
-
-### v2.2 — 2026‑03‑24
-
-* **Multi-index support** — indexes saved under `%APPDATA%/RAG-Pro/indexes/<name>/`; each fully independent.
-* **Index name field** in Indexing tab — auto-filled from folder name, fully editable.
-* **Index selector dropdown** in Chat tab — switch between datasets on the fly; changing selection auto-unloads current retriever.
-* **Refresh button (↻)** — rescans the indexes directory without restarting.
-
-### v2.1 — 2026‑03‑24
-
-* **Chat history** — Q&A pairs persist across questions in the same session, displayed as a scrollable timeline with auto-scroll to the latest answer.
-* **Clear history button** — resets the conversation panel without restarting the app.
-
-### v2.0 — 2025‑08‑27
-
-* **Clickable source links** now open local files directly from the results panel (handled via `anchorClicked` → `QDesktopServices.openUrl`).
-* **Hot‑swap LLM backend** without restarting the app (OpenAI ↔ HuggingFace local ↔ Citations‑only).
-* **OpenAI setup dialog** with **model picker** (presets + custom), optional **Base URL** (for compatible endpoints), and **remember** toggle.
-* **Working local AI (HF local)** support to Hugging Face local AI
-* **Removed llama.cpp / GGUF** support to simplify setup and reduce build complexity.
-* **More relevant results** support to simplify setup and reduce build complexity.
-
+### v2.0 — 2025-08-27
+- **Clickable source links** — open local files from the results panel.
+- **Hot-swap LLM backend** — switch without restarting the app.
+- **OpenAI setup dialog** — model picker, optional Base URL, remember toggle.
+- **HuggingFace local** — runs on CPU; uses GPU if available.
+- Removed llama.cpp / GGUF support.
 
 ### v1.x
+- Initial FAISS-based RAG GUI; hybrid retrieval with BM25; multi-format loaders.
 
-* Initial FAISS‑based RAG GUI; hybrid retrieval with BM25 mixing; multi‑format loaders.
+</details>
 
 ---
 
 ## Roadmap
 
-* Multi‑index management (create, switch, and merge multiple FAISS indexes).
-* Bigger datasets: sharded / on‑disk FAISS indexes and tuning to scale to tens of millions of vectors.
-* More AI providers: adapters for additional providers (e.g., Azure‑compatible, Google Gemini, Mistral‑compatible).
-* Ranking & relevance: refine hybrid scoring (dense + sparse), smarter passage de‑duplication and merging.
+- More AI providers (Azure, Google Gemini, Mistral-compatible)
+- Streaming responses (OpenAI / Anthropic)
+- Incremental indexing (add files without full rebuild)
+- Export chat history as `.md` / `.txt`
+- Dark mode
+
+---
+
+## Screenshots
+
+| Indexing tab | Chat tab |
+|---|---|
+| ![Indexing](docs/screenshot-indexing.png) | ![Chat](docs/screenshot-chat.png) |
+
+---
+
+## License
+
+MIT License — Copyright (c) 2025 Paolo Ronco
+
+<details>
+<summary>Full license text</summary>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+</details>

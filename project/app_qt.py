@@ -1,5 +1,5 @@
 from __future__ import annotations
-import os, sys, json, shutil
+import os, sys, json, shutil, re
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QFileDialog, QProgressBar, QComboBox, QMessageBox, QLineEdit, QTextBrowser,
     QDialog, QFormLayout, QDialogButtonBox, QCheckBox, QInputDialog, QFrame
 )
-from PyQt6.QtCore import QThread, pyqtSignal, QUrl, QByteArray
+from PyQt6.QtCore import QThread, pyqtSignal, QUrl, QByteArray, QTimer, Qt
 from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
 
 # ── embedded app icon (256×256 PNG, base64) ──────────────────────────────────
@@ -1145,13 +1145,27 @@ class AnthropicDialog(QDialog):
 
 
 # ---------------- App ----------------
+class QuestionEdit(QTextEdit):
+    """QTextEdit that emits submitted() on Ctrl+Enter."""
+    submitted = pyqtSignal()
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key.Key_Return and e.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.submitted.emit()
+        else:
+            super().keyPressEvent(e)
+
+
 class App(QWidget):
     def __init__(self):
         super().__init__(); self.setWindowTitle("RAG Pro — FAISS GUI"); self.resize(1000, 720)
         self.retriever: Retriever | None = None; self.llm_backend = "none"; self.llm = NoLLM()
         self._history: list[tuple[str, str]] = []; self._current_q = ""
 
-        tabs = QTabWidget(self); v = QVBoxLayout(self); v.addWidget(tabs)
+        tabs = QTabWidget(self); v = QVBoxLayout(self); v.setSpacing(0); v.setContentsMargins(0,0,0,0)
+        v.addWidget(tabs)
+        self.lblStatus = QLabel("  No index loaded  │  Backend: No LLM  │  Re-rank: OFF")
+        self.lblStatus.setStyleSheet("background:#e8e8e8; padding:3px 8px; border-top:1px solid #ccc; color:#555; font-size:11px")
+        v.addWidget(self.lblStatus)
 
         # Tab: Indexing
         w_idx = QWidget(); tabs.addTab(w_idx, "Indexing"); l = QVBoxLayout(w_idx)
@@ -1227,11 +1241,17 @@ class App(QWidget):
         row_opts.addStretch()
         row_opts.addWidget(QLabel("Answer language:")); row_opts.addWidget(self.cbLang)
 
-        self.inp = QTextEdit(); self.inp.setPlaceholderText("Type your question…"); c.addWidget(self.inp)
+        self.inp = QuestionEdit(); self.inp.setPlaceholderText("Type your question…  (Ctrl+Enter to send)"); c.addWidget(self.inp)
+        self.inp.submitted.connect(self.ask)
         row_ask = QHBoxLayout(); c.addLayout(row_ask)
         self.bAsk = QPushButton("Search and Answer"); self.bAsk.clicked.connect(self.ask)
+        bCopy = QPushButton("Copy answer"); bCopy.clicked.connect(self.copy_answer)
+        bExport = QPushButton("Export…"); bExport.clicked.connect(self.export_chat)
         bClear = QPushButton("Clear history"); bClear.clicked.connect(self.clear_history)
-        row_ask.addWidget(self.bAsk, 1); row_ask.addWidget(bClear)
+        row_ask.addWidget(self.bAsk, 1); row_ask.addWidget(bCopy); row_ask.addWidget(bExport); row_ask.addWidget(bClear)
+        self.lblThinking = QLabel("")
+        self.lblThinking.setStyleSheet("color:#888; font-style:italic; padding:1px 4px")
+        c.addWidget(self.lblThinking)
         self.out = QTextBrowser()
         # enable opening local files by clicking <a href="file:///...">
         self.out.setOpenExternalLinks(False)
@@ -1240,6 +1260,10 @@ class App(QWidget):
         c.addWidget(self.out,1)
 
         self.worker: IndexThread | None = None; self.asker: AskThread | None = None
+        self._thinking_dots = 0
+        self._thinking_timer = QTimer(self); self._thinking_timer.setInterval(400)
+        self._thinking_timer.timeout.connect(self._tick_thinking)
+        self._update_status()
 
     # ---------- when backend changes ----------
     def on_backend_change(self, _idx:int):
@@ -1415,6 +1439,7 @@ class App(QWidget):
     def on_rerank_toggle(self, checked: bool) -> None:
         if self.retriever is not None:
             self.retriever.set_rerank(checked)
+        self._update_status()
 
     def reload_index(self):
         name = self.cbIndexSel.currentText()
@@ -1425,6 +1450,7 @@ class App(QWidget):
             self.retriever = Retriever(index_dir)
             self.retriever.set_rerank(self.cbRerank.isChecked())
             self.lblIndex.setText(f"Loaded: {name}  • vectors={self.retriever.idx.ntotal}  • embed={self.retriever.embed_model}")
+            self._update_status()
             QMessageBox.information(self, "OK", f"Index '{name}' loaded.")
         except Exception as e:
             self.lblIndex.setText(f"Error loading '{name}'")
@@ -1443,10 +1469,12 @@ class App(QWidget):
                 self.llm = AnthropicChat(model=model); self.llm_backend = "anthropic"
             elif kind=="hf_local":
                 self.llm = HFLocal(model_id=name or "Qwen/Qwen2.5-0.5B-Instruct"); self.llm_backend = "hf_local"
+            self._update_status()
             QMessageBox.information(self, "LLM", f"Applied: {self.llm.name}")
         except Exception as e:
             QMessageBox.warning(self, "LLM error", str(e))
             self.llm = NoLLM(); self.llm_backend = "none"
+            self._update_status()
 
     def ask(self):
         q = self.inp.toPlainText().strip()
@@ -1464,16 +1492,21 @@ class App(QWidget):
         self.retriever.set_rerank(self.cbRerank.isChecked())
         self._current_q = q
         self.bAsk.setEnabled(False)
+        self._thinking_dots = 0
+        self.lblThinking.setText("Thinking.")
+        self._thinking_timer.start()
         self._render_history(f"<i>Searching for: \"{q}\"…</i>")
         lang = self.cbLang.currentText()
         self.asker = AskThread(q, self.retriever, self.llm, lang); self.asker.ready.connect(self.on_answer_ready); self.asker.error.connect(self.on_answer_error); self.asker.start()
 
     def on_answer_ready(self, html: str):
+        self._thinking_timer.stop(); self.lblThinking.setText("")
         self._history.append((self._current_q, html))
         self._render_history()
         self.bAsk.setEnabled(True); self.inp.clear(); self.inp.setFocus()
 
     def on_answer_error(self, msg: str):
+        self._thinking_timer.stop(); self.lblThinking.setText("")
         QMessageBox.warning(self, "Error while answering", msg); self.bAsk.setEnabled(True); self.inp.setFocus()
 
     def _render_history(self, pending: str = "") -> None:
@@ -1494,6 +1527,41 @@ class App(QWidget):
     def clear_history(self) -> None:
         self._history.clear()
         self.out.clear()
+
+    def copy_answer(self) -> None:
+        text = self.out.toPlainText().strip()
+        if text:
+            QApplication.clipboard().setText(text)
+        else:
+            QMessageBox.information(self, "Nothing to copy", "No answer to copy yet.")
+
+    def export_chat(self) -> None:
+        if not self._history:
+            QMessageBox.information(self, "Nothing to export", "No chat history to export."); return
+        path, _ = QFileDialog.getSaveFileName(self, "Export chat", "", "Markdown (*.md);;Text (*.txt)")
+        if not path:
+            return
+        lines = []
+        for q, html in self._history:
+            lines.append(f"## Q: {q}\n")
+            plain = re.sub(r'<[^>]+>', '', html).replace('&nbsp;', ' ').strip()
+            lines.append(f"{plain}\n\n---\n")
+        Path(path).write_text("\n".join(lines), encoding="utf-8")
+        QMessageBox.information(self, "Exported", f"Saved to:\n{path}")
+
+    def _tick_thinking(self) -> None:
+        self._thinking_dots = (self._thinking_dots + 1) % 4
+        self.lblThinking.setText("Thinking" + "." * self._thinking_dots)
+
+    def _update_status(self) -> None:
+        if self.retriever is not None:
+            idx = self.cbIndexSel.currentText()
+            idx_text = f"Index: {idx} ({self.retriever.idx.ntotal} vectors)"
+        else:
+            idx_text = "No index loaded"
+        backend_name = next((lbl for key, lbl in LLM_BACKENDS if key == self.llm_backend), "No LLM")
+        rerank = "Re-rank: ON" if self.cbRerank.isChecked() else "Re-rank: OFF"
+        self.lblStatus.setText(f"  {idx_text}  │  Backend: {backend_name}  │  {rerank}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
