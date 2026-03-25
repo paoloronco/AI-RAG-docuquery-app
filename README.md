@@ -8,6 +8,7 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 
 ## Table of Contents
 
+* [What's New in v2.5](#whats-new-in-v25)
 * [What's New in v2.4](#whats-new-in-v24)
 * [What's New in v2.3](#whats-new-in-v23)
 * [What's New in v2.2](#whats-new-in-v22)
@@ -29,6 +30,14 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 * [License](#license)
 * [Changelog](#changelog)
 * [Roadmap](#roadmap)
+
+---
+
+## What's New in v2.5
+
+* ✅ **Cross-encoder re-ranking** — checkbox "Re-rank results" in the Chat tab. Uses `cross-encoder/ms-marco-MiniLM-L-6-v2` to re-score retrieved passages for higher accuracy. Model downloads ~25 MB on first use; loaded lazily, freed when disabled.
+* ✅ **Answer language selector** — dropdown next to the checkbox: Auto-detect, English, Italiano, Français, Español, Deutsch. Replaces the hardcoded English-only prompt.
+* ✅ **Updated OpenAI models** — preset list now includes `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini`, `o3-mini`.
 
 ---
 
@@ -248,6 +257,12 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v2.5 — 2026‑03‑25
+
+* **Cross-encoder re-ranking** — "Re-rank results" checkbox in Chat tab; lazy-loads `cross-encoder/ms-marco-MiniLM-L-6-v2` on first use (~25 MB), freed on disable.
+* **Answer language** — dropdown: Auto-detect / English / Italiano / Français / Español / Deutsch.
+* **Updated OpenAI presets** — `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini`, `o3-mini`.
 
 ### v2.4 — 2026‑03‑25
 

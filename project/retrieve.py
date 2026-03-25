@@ -30,6 +30,17 @@ class Retriever:
             tokenized = [c.lower().split() for c in corpus]
             self.bm25 = BM25Okapi(tokenized)
 
+        self.rerank = False
+        self.reranker = None
+        self._rerank_model_id = DEFAULTS["rerank_model"]
+
+    def set_rerank(self, enabled: bool, model_id: str = "") -> None:
+        self.rerank = enabled
+        if model_id:
+            self._rerank_model_id = model_id
+        if not enabled:
+            self.reranker = None  # free memory when disabled
+
     def search(self, q: str, k: int = DEFAULTS["k"]) -> List[Tuple[int, float]]:
         qv = self.embed.encode([f"query: {q}"], normalize_embeddings=True, show_progress_bar=False).astype("float32")
         D, I = self.idx.search(qv, k)
@@ -49,6 +60,16 @@ class Retriever:
             for idx_id in top_sparse:
                 mix[idx_id] = mix.get(idx_id, 0) + 0.4 * float(scores[idx_id])
             hits = sorted(mix.items(), key=lambda x: x[1], reverse=True)[:k]
+
+        # Cross-encoder re-ranking (lazy-load model on first use)
+        if self.rerank:
+            if self.reranker is None:
+                from sentence_transformers import CrossEncoder
+                self.reranker = CrossEncoder(self._rerank_model_id, device="cpu")
+            pairs = [(q, (self.metas[idx_id].get("text") or "")) for idx_id, _ in hits]
+            ce_scores = self.reranker.predict(pairs).tolist()
+            hits = sorted(zip([i for i, _ in hits], ce_scores), key=lambda x: x[1], reverse=True)
+
         return hits
 
     def gather(self, hits: List[Tuple[int, float]]) -> List[Dict]:
