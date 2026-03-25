@@ -6,13 +6,19 @@ An **AI-powered document search app** using **FAISS** for vector search and **Re
 
 ---
 
-## What's New in v2.6
+## Table of Contents
 
-- **Ctrl+Enter** to submit a question — no need to click the button.
-- **Copy answer** button — copies full chat output to clipboard.
-- **Export chat** — saves conversation as `.md` or `.txt`.
-- **Thinking… indicator** — animated label while the LLM generates.
-- **Status bar** — persistent bar showing active index, LLM backend, and re-rank state.
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Usage](#usage)
+- [Requirements](#requirements)
+- [Build a Windows EXE](#build-a-windows-exe)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
+- [Changelog](#changelog)
+- [Roadmap](#roadmap)
+- [Screenshots](#screenshots)
+- [License](#license)
 
 ---
 
