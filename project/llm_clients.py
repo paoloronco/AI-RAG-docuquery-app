@@ -32,6 +32,26 @@ class OpenAIChat(BaseLLM):
         )
         return resp.choices[0].message.content.strip()
 
+class AnthropicChat(BaseLLM):
+    def __init__(self, model: str = "claude-haiku-4-5-20251001"):
+        from anthropic import Anthropic
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not set")
+        self.client = Anthropic(api_key=api_key)
+        self.model = model
+        self.name = f"anthropic:{model}"
+
+    def generate(self, system: str, prompt: str, max_tokens: int = 512) -> str:
+        resp = self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+
+
 class HFLocal(BaseLLM):
     def __init__(self, model_id: str = "Qwen/Qwen2.5-0.5B-Instruct"):
         from transformers import AutoTokenizer, AutoModelForCausalLM

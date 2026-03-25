@@ -15,9 +15,10 @@ INDEX_TYPES = [
 ]
 
 LLM_BACKENDS = [
-    ("none", "No LLM (citations only)"),
-    ("openai", "OpenAI / compatible"),
-    ("hf_local", "Local HuggingFace"),
+    ("none",      "No LLM (citations only)"),
+    ("openai",    "OpenAI / compatible"),
+    ("anthropic", "Anthropic Claude"),
+    ("hf_local",  "Local HuggingFace"),
 ]
 
 DEFAULTS = {

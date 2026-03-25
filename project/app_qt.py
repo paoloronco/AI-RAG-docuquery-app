@@ -12,7 +12,7 @@ from PyQt6.QtGui import QDesktopServices, QIcon
 
 from indexer import Indexer
 from retrieve import Retriever
-from llm_clients import NoLLM, OpenAIChat, HFLocal
+from llm_clients import NoLLM, OpenAIChat, AnthropicChat, HFLocal
 from config import EMBED_MODELS, INDEX_TYPES, LLM_BACKENDS, DEFAULTS, IndexConfig
 
 # ---------------- app config / index helpers ----------------
@@ -137,6 +137,54 @@ class OpenAIDialog(QDialog):
             model = self.eCustomModel.text().strip()
         return self.eKey.text().strip(), self.eUrl.text().strip(), model.strip(), self.cbRemember.isChecked()
 
+# ---------------- Anthropic auth dialog ----------------
+ANTHROPIC_PRESETS = [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-4-6",
+    "claude-opus-4-6",
+    "Other…",
+]
+
+class AnthropicDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Configure Anthropic Claude")
+        self.eKey = QLineEdit(); self.eKey.setEchoMode(QLineEdit.EchoMode.Password); self.eKey.setPlaceholderText("sk-ant-...")
+        self.cbRemember = QCheckBox("Remember for next time (save to local config)")
+        self.cbModel = QComboBox(); [self.cbModel.addItem(m) for m in ANTHROPIC_PRESETS]
+        self.eCustomModel = QLineEdit(); self.eCustomModel.setPlaceholderText("Custom model id…"); self.eCustomModel.setEnabled(False)
+
+        cfg = load_config()
+        self.eKey.setText(os.getenv("ANTHROPIC_API_KEY", cfg.get("ANTHROPIC_API_KEY", "")))
+        preset = os.getenv("ANTHROPIC_MODEL", cfg.get("ANTHROPIC_MODEL", ANTHROPIC_PRESETS[0]))
+        if preset in ANTHROPIC_PRESETS:
+            self.cbModel.setCurrentText(preset)
+        else:
+            self.cbModel.setCurrentText("Other…")
+            self.eCustomModel.setEnabled(True)
+            self.eCustomModel.setText(preset)
+
+        def on_model_change(idx: int):
+            self.eCustomModel.setEnabled(self.cbModel.currentText() == "Other…")
+        self.cbModel.currentIndexChanged.connect(on_model_change)
+
+        form = QFormLayout(self)
+        form.addRow("API key", self.eKey)
+        form.addRow("Model", self.cbModel)
+        form.addRow("", self.eCustomModel)
+        form.addRow(self.cbRemember)
+
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self.accept); btns.rejected.connect(self.reject)
+        form.addRow(btns)
+
+    def values(self):
+        model = self.cbModel.currentText()
+        if model == "Other…":
+            model = self.eCustomModel.text().strip()
+        return self.eKey.text().strip(), model.strip(), self.cbRemember.isChecked()
+
+
 # ---------------- App ----------------
 class App(QWidget):
     def __init__(self):
@@ -208,8 +256,8 @@ class App(QWidget):
     # ---------- when backend changes ----------
     def on_backend_change(self, _idx:int):
         kind = self.cbLLM.currentData()
-        # Disable/enable "Model" field depending on backend
-        self.eModelName.setEnabled(kind != "openai")
+        # Only HF local uses the free-text model field
+        self.eModelName.setEnabled(kind == "hf_local")
 
         if kind == "openai":
             dlg = OpenAIDialog(self)
@@ -221,14 +269,10 @@ class App(QWidget):
                 if not model:
                     QMessageBox.warning(self, "Missing model", "Please select or type a model name.")
                     self.cbLLM.setCurrentIndex(0); return
-
-                # Set for current session
                 os.environ["OPENAI_API_KEY"] = key
                 os.environ["OPENAI_MODEL"] = model
                 if url: os.environ["OPENAI_BASE_URL"] = url
                 else: os.environ.pop("OPENAI_BASE_URL", None)
-
-                # Optional persist
                 if remember:
                     cfg = load_config()
                     cfg["OPENAI_API_KEY"] = key
@@ -236,8 +280,6 @@ class App(QWidget):
                     else: cfg.pop("OPENAI_BASE_URL", None)
                     cfg["OPENAI_MODEL"] = model
                     save_config(cfg)
-
-                # Apply backend immediately
                 try:
                     self.llm = OpenAIChat(model=model)
                     self.llm_backend = "openai"
@@ -246,11 +288,38 @@ class App(QWidget):
                     QMessageBox.warning(self, "LLM error", str(e))
                     self.cbLLM.setCurrentIndex(0)
             else:
-                # cancelled → back to "No LLM"
                 self.cbLLM.setCurrentIndex(0)
                 self.apply_llm()
+
+        elif kind == "anthropic":
+            dlg = AnthropicDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                key, model, remember = dlg.values()
+                if not key:
+                    QMessageBox.warning(self, "Missing API key", "Please enter a valid Anthropic API key.")
+                    self.cbLLM.setCurrentIndex(0); return
+                if not model:
+                    QMessageBox.warning(self, "Missing model", "Please select or type a model name.")
+                    self.cbLLM.setCurrentIndex(0); return
+                os.environ["ANTHROPIC_API_KEY"] = key
+                os.environ["ANTHROPIC_MODEL"] = model
+                if remember:
+                    cfg = load_config()
+                    cfg["ANTHROPIC_API_KEY"] = key
+                    cfg["ANTHROPIC_MODEL"] = model
+                    save_config(cfg)
+                try:
+                    self.llm = AnthropicChat(model=model)
+                    self.llm_backend = "anthropic"
+                    QMessageBox.information(self, "LLM", f"Applied: {self.llm.name}")
+                except Exception as e:
+                    QMessageBox.warning(self, "LLM error", str(e))
+                    self.cbLLM.setCurrentIndex(0)
+            else:
+                self.cbLLM.setCurrentIndex(0)
+                self.apply_llm()
+
         else:
-            # For other backends apply immediately (including "No LLM")
             self.apply_llm()
 
     # ---------- Indexing ----------
@@ -321,6 +390,9 @@ class App(QWidget):
             elif kind=="openai":
                 model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
                 self.llm = OpenAIChat(model=model); self.llm_backend = "openai"
+            elif kind=="anthropic":
+                model = os.getenv("ANTHROPIC_MODEL", ANTHROPIC_PRESETS[0])
+                self.llm = AnthropicChat(model=model); self.llm_backend = "anthropic"
             elif kind=="hf_local":
                 self.llm = HFLocal(model_id=name or "Qwen/Qwen2.5-0.5B-Instruct"); self.llm_backend = "hf_local"
             QMessageBox.information(self, "LLM", f"Applied: {self.llm.name}")

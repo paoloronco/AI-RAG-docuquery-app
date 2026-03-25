@@ -2,12 +2,13 @@
 
 An **AI‑powered document search app** using **FAISS** for vector search and **Retrieval‑Augmented Generation (RAG)**. Index your local documents, ask natural‑language questions, and get source‑grounded answers with clickable citations.
 
-> GUI: **PyQt6** • Embeddings: **Sentence‑Transformers (E5/MiniLM)** • LLM backends: **OpenAI / compatible**, **Local HuggingFace**, or **No LLM (citations‑only)**.
+> GUI: **PyQt6** • Embeddings: **Sentence‑Transformers (E5/MiniLM)** • LLM backends: **OpenAI / compatible**, **Anthropic Claude**, **Local HuggingFace**, or **No LLM (citations‑only)**.
 
 ---
 
 ## Table of Contents
 
+* [What's New in v2.3](#whats-new-in-v23)
 * [What's New in v2.2](#whats-new-in-v22)
 * [What's New in v2.1](#whats-new-in-v21)
 * [What's New in v2.0](#whats-new-in-v20)
@@ -27,6 +28,12 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 * [License](#license)
 * [Changelog](#changelog)
 * [Roadmap](#roadmap)
+
+---
+
+## What's New in v2.3
+
+* ✅ **Anthropic Claude backend** — new LLM option: choose between `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-6` or any custom model id. API key stored securely with optional "Remember" toggle (same pattern as OpenAI).
 
 ---
 
@@ -128,6 +135,7 @@ python app_qt.py
   * Enter **API key**, optional **Base URL**, and pick a **model** (e.g. `gpt-4o-mini`).
   * Optionally **Remember** to save into local config (see below).
   * Applied immediately; no restart.
+* **Anthropic Claude** → A dialog pops up: enter your **API key** (`sk-ant-…`), pick a model (`claude-haiku-4-5`, `claude-sonnet-4-6`, etc.), optionally **Remember**.
 * **Local HuggingFace** → Enter a model id (e.g. `Qwen/Qwen2.5-0.5B-Instruct`).
 
   * Runs on CPU by default; uses GPU automatically if available (`torch.cuda.is_available()`).
@@ -234,6 +242,11 @@ SOFTWARE.
 
 ## Changelog
 
+### v2.3 — 2026‑03‑25
+
+* **Anthropic Claude backend** — new dialog for API key + model selection; supports `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-6` and custom model ids. Config persisted to `config.json` with optional "Remember" toggle.
+* **`anthropic` package** added to `requirements.txt`.
+
 ### v2.2 — 2026‑03‑24
 
 * **Multi-index support** — indexes saved under `%APPDATA%/RAG-Pro/indexes/<name>/`; each fully independent.
@@ -266,5 +279,5 @@ SOFTWARE.
 
 * Multi‑index management (create, switch, and merge multiple FAISS indexes).
 * Bigger datasets: sharded / on‑disk FAISS indexes and tuning to scale to tens of millions of vectors.
-* More AI providers: adapters for additional providers (e.g., Azure‑compatible, Anthropic, Google, Mistral‑compatible).
+* More AI providers: adapters for additional providers (e.g., Azure‑compatible, Google Gemini, Mistral‑compatible).
 * Ranking & relevance: refine hybrid scoring (dense + sparse), smarter passage de‑duplication and merging.
