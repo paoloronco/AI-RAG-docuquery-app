@@ -1,11 +1,11 @@
 from __future__ import annotations
-import os, sys, json
+import os, sys, json, shutil
 from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QTabWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTextEdit, QFileDialog, QProgressBar, QComboBox, QMessageBox, QLineEdit, QTextBrowser,
-    QDialog, QFormLayout, QDialogButtonBox, QCheckBox
+    QDialog, QFormLayout, QDialogButtonBox, QCheckBox, QInputDialog, QFrame
 )
 from PyQt6.QtCore import QThread, pyqtSignal, QUrl, QByteArray
 from PyQt6.QtGui import QDesktopServices, QIcon, QPixmap
@@ -1165,6 +1165,20 @@ class App(QWidget):
         self.prog = QProgressBar(); self.prog.setValue(0); l.addWidget(self.prog)
         self.log = QTextEdit(); self.log.setReadOnly(True); l.addWidget(self.log,1)
 
+        # -- Manage existing indexes --
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine); sep.setFrameShadow(QFrame.Shadow.Sunken)
+        l.addWidget(sep)
+        row_mgmt = QHBoxLayout(); l.addLayout(row_mgmt)
+        self.cbManage = QComboBox()
+        bRefreshMgmt = QPushButton("↻"); bRefreshMgmt.setFixedWidth(30); bRefreshMgmt.setToolTip("Refresh list")
+        bRefreshMgmt.clicked.connect(self._refresh_manage_combo)
+        bRename = QPushButton("Rename…"); bRename.clicked.connect(self.rename_index)
+        bDelete = QPushButton("Delete"); bDelete.clicked.connect(self.delete_index)
+        bDelete.setStyleSheet("color: #c0392b; font-weight: bold;")
+        row_mgmt.addWidget(QLabel("Manage index:")); row_mgmt.addWidget(self.cbManage, 1)
+        row_mgmt.addWidget(bRefreshMgmt); row_mgmt.addWidget(bRename); row_mgmt.addWidget(bDelete)
+        self._refresh_manage_combo()
+
         # Tab: Chat
         w_chat = QWidget(); tabs.addTab(w_chat, "Chat"); c = QVBoxLayout(w_chat)
         top = QHBoxLayout(); c.addLayout(top)
@@ -1305,6 +1319,61 @@ class App(QWidget):
         self.log.append(f"\n✅ Completed [{name}]. Files indexed: {files} • Vectors: {vecs}")
         self.retriever = None
         self._refresh_index_combo(select=name)
+        self._refresh_manage_combo()
+
+    # ---------- Manage indexes ----------
+    def _refresh_manage_combo(self) -> None:
+        current = self.cbManage.currentText()
+        self.cbManage.clear()
+        for name in list_indexes():
+            self.cbManage.addItem(name)
+        if current and self.cbManage.findText(current) >= 0:
+            self.cbManage.setCurrentText(current)
+
+    def rename_index(self) -> None:
+        old_name = self.cbManage.currentText()
+        if not old_name:
+            QMessageBox.warning(self, "No index", "No indexes available."); return
+        new_name, ok = QInputDialog.getText(
+            self, "Rename index", f"New name for '{old_name}':", text=old_name)
+        if not ok or not new_name.strip():
+            return
+        new_name = new_name.strip()
+        if new_name == old_name:
+            return
+        new_dir = indexes_base_dir() / new_name
+        if new_dir.exists():
+            QMessageBox.warning(self, "Name taken", f"An index named '{new_name}' already exists."); return
+        try:
+            (indexes_base_dir() / old_name).rename(new_dir)
+        except Exception as e:
+            QMessageBox.warning(self, "Rename failed", str(e)); return
+        if self.retriever is not None and self.cbIndexSel.currentText() == old_name:
+            self.retriever = None; self.lblIndex.setText("—")
+        self._refresh_manage_combo()
+        self._refresh_index_combo(select=new_name)
+        self.log.append(f"Renamed index '{old_name}' → '{new_name}'")
+
+    def delete_index(self) -> None:
+        name = self.cbManage.currentText()
+        if not name:
+            QMessageBox.warning(self, "No index", "No indexes available."); return
+        reply = QMessageBox.question(
+            self, "Delete index",
+            f"Delete index '{name}' and all its files?\nThis cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            shutil.rmtree(indexes_base_dir() / name)
+        except Exception as e:
+            QMessageBox.warning(self, "Delete failed", str(e)); return
+        if self.retriever is not None and self.cbIndexSel.currentText() == name:
+            self.retriever = None; self.lblIndex.setText("—")
+        self._refresh_manage_combo()
+        self._refresh_index_combo()
+        self.log.append(f"Deleted index '{name}'.")
 
     # ---------- Chat ----------
     def _refresh_index_combo(self, select: str = "") -> None:

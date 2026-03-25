@@ -8,6 +8,7 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 
 ## Table of Contents
 
+* [What's New in v2.4](#whats-new-in-v24)
 * [What's New in v2.3](#whats-new-in-v23)
 * [What's New in v2.2](#whats-new-in-v22)
 * [What's New in v2.1](#whats-new-in-v21)
@@ -28,6 +29,12 @@ An **AI‑powered document search app** using **FAISS** for vector search and **
 * [License](#license)
 * [Changelog](#changelog)
 * [Roadmap](#roadmap)
+
+---
+
+## What's New in v2.4
+
+* ✅ **Manage indexes** — new section at the bottom of the Indexing tab: select any index from a dropdown, then **Rename…** or **Delete** it. Delete asks for confirmation before removing all files permanently. Rename validates the new name and keeps the Chat tab selector in sync.
 
 ---
 
@@ -241,6 +248,10 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v2.4 — 2026‑03‑25
+
+* **Index management** — Rename and Delete buttons in the Indexing tab. Confirmation dialog before delete. Both operations keep the Chat index selector in sync and unload the retriever if the active index is affected.
 
 ### v2.3 — 2026‑03‑25
 
