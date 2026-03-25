@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QDialogButtonBox, QCheckBox
 )
 from PyQt6.QtCore import QThread, pyqtSignal, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QIcon
 
 from indexer import Indexer
 from retrieve import Retriever
@@ -373,4 +373,12 @@ class App(QWidget):
         self.out.clear()
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv); w = App(); w.show(); sys.exit(app.exec())
+    app = QApplication(sys.argv)
+    icon_path = Path(__file__).parent.parent / "app-icon.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+    w = App()
+    if icon_path.exists():
+        w.setWindowIcon(QIcon(str(icon_path)))
+    w.show()
+    sys.exit(app.exec())
