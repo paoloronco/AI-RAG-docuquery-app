@@ -54,7 +54,8 @@ python app_qt.py
 | Ctrl+Enter shortcut | Submit question without clicking the button |
 | Copy answer | Copy the full answer to clipboard with one click |
 | Export chat | Save the conversation as `.md` or `.txt` |
-| Thinking indicator | Animated "Thinking…" label while the LLM generates |
+| Streaming responses | Tokens appear in real-time with a blinking cursor; sources shown immediately |
+| Thinking indicator | Animated "Thinking…" label during retrieval, replaced by streaming text |
 | Status bar | Shows active index, backend, and re-rank state |
 
 ---
@@ -164,6 +165,9 @@ Config & indexes stored in:
 <details>
 <summary><strong>Changelog</strong></summary>
 
+### v2.7 — 2026-04-10
+- **Streaming responses** — OpenAI and Anthropic Claude now stream tokens in real-time. The answer appears word-by-word as it is generated, with a blinking cursor `▌`. Sources are shown immediately. HuggingFace local models use `TextIteratorStreamer` for true streaming. No LLM mode is unchanged.
+
 ### v2.6 — 2026-03-25
 - **Ctrl+Enter** — submit question from keyboard without clicking the button.
 - **Copy answer** — button copies the full chat output to clipboard.
@@ -208,9 +212,8 @@ Config & indexes stored in:
 ## Roadmap
 
 - More AI providers (Azure, Google Gemini, Mistral-compatible)
-- Streaming responses (OpenAI / Anthropic)
 - Incremental indexing (add files without full rebuild)
-- Export chat history as `.md` / `.txt`
+- Conversational memory (multi-turn follow-up questions)
 - Dark mode
 
 ---

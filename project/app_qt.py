@@ -1006,7 +1006,7 @@ class IndexThread(QThread):
 
 # ---------------- Ask worker ----------------
 class AskThread(QThread):
-    error = pyqtSignal(str); ready = pyqtSignal(str)
+    error = pyqtSignal(str); ready = pyqtSignal(str); chunk = pyqtSignal(str)
     def __init__(self, question: str, retriever: Retriever, llm, language: str = "English"):
         super().__init__(); self.q = question; self.retriever = retriever; self.llm = llm; self.language = language
     def run(self):
@@ -1020,14 +1020,20 @@ class AskThread(QThread):
             system=("You are a RAG assistant. Answer ONLY using the provided passages. Cite sources as [number]. "
                     "If the information is missing, say 'Not found in the documents'.")
             user=(f"QUESTION: {self.q}\n\nPASSAGES:\n{context}\n\nInstructions: {lang_instruction}, including references [1], [2]…")
-            answer = self.llm.generate(system, user, max_tokens=600)
             def linkify(p:dict)->str:
                 path=Path(p.get("file","")).resolve()
                 url=QUrl.fromLocalFile(str(path))
                 return f"<a href='{url.toString()}' title='{path}'>Open</a>"
             cites=[f"[{p['rank']}] {os.path.basename(p.get('file','?'))} • page {p.get('page','?')} • score={p['score']:.3f} • {linkify(p)}" for p in ctx]
-            html = f"<b>Answer</b><br><div style='white-space:pre-wrap'>{answer}</div><br><b>Sources</b><br>"+"<br>".join(cites)
-            self.ready.emit(html)
+            sources_html = "<b>Sources</b><br>" + "<br>".join(cites)
+            accumulated = ""
+            for token in self.llm.stream_generate(system, user, max_tokens=600):
+                accumulated += token
+                self.chunk.emit(
+                    f"<b>Answer</b><br><div style='white-space:pre-wrap'>{accumulated}▌</div><br>{sources_html}"
+                )
+            final = f"<b>Answer</b><br><div style='white-space:pre-wrap'>{accumulated}</div><br>{sources_html}"
+            self.ready.emit(final)
         except Exception as e:
             self.error.emit(str(e))
 
@@ -1497,7 +1503,35 @@ class App(QWidget):
         self._thinking_timer.start()
         self._render_history(f"<i>Searching for: \"{q}\"…</i>")
         lang = self.cbLang.currentText()
-        self.asker = AskThread(q, self.retriever, self.llm, lang); self.asker.ready.connect(self.on_answer_ready); self.asker.error.connect(self.on_answer_error); self.asker.start()
+        self.asker = AskThread(q, self.retriever, self.llm, lang)
+        self.asker.chunk.connect(self.on_stream_chunk)
+        self.asker.ready.connect(self.on_answer_ready)
+        self.asker.error.connect(self.on_answer_error)
+        self.asker.start()
+
+    def on_stream_chunk(self, partial_html: str) -> None:
+        if self._thinking_timer.isActive():
+            self._thinking_timer.stop()
+            self.lblThinking.setText("")
+        self._render_streaming_chunk(partial_html)
+
+    def _render_streaming_chunk(self, partial_html: str) -> None:
+        parts = []
+        for q, a in self._history:
+            parts.append(
+                f"<div style='background:#f0f4ff;padding:6px 8px;margin-bottom:4px;border-radius:4px'>"
+                f"<b>Q:</b> {q}</div>"
+                f"<div style='padding:4px 8px'>{a}</div>"
+                f"<hr style='border:1px solid #ddd;margin:8px 0'>"
+            )
+        parts.append(
+            f"<div style='background:#f0f4ff;padding:6px 8px;margin-bottom:4px;border-radius:4px'>"
+            f"<b>Q:</b> {self._current_q}</div>"
+            f"<div style='padding:4px 8px'>{partial_html}</div>"
+        )
+        self.out.setHtml("".join(parts))
+        sb = self.out.verticalScrollBar()
+        sb.setValue(sb.maximum())
 
     def on_answer_ready(self, html: str):
         self._thinking_timer.stop(); self.lblThinking.setText("")
@@ -1507,6 +1541,7 @@ class App(QWidget):
 
     def on_answer_error(self, msg: str):
         self._thinking_timer.stop(); self.lblThinking.setText("")
+        self._render_history()  # clear any partial streaming content
         QMessageBox.warning(self, "Error while answering", msg); self.bAsk.setEnabled(True); self.inp.setFocus()
 
     def _render_history(self, pending: str = "") -> None:

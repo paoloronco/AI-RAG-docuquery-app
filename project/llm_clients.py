@@ -1,16 +1,27 @@
 from __future__ import annotations
 import os
+from typing import Iterator
+
 
 class BaseLLM:
     name: str
+
     def generate(self, system: str, prompt: str, max_tokens: int = 512) -> str:
         raise NotImplementedError
 
+    def stream_generate(self, system: str, prompt: str, max_tokens: int = 512) -> Iterator[str]:
+        """Yield text chunks as they are generated. Default: emit full result at once."""
+        yield self.generate(system, prompt, max_tokens)
+
+
 class NoLLM(BaseLLM):
     name = "none"
+
     def generate(self, system: str, prompt: str, max_tokens: int = 512) -> str:
         # "citations only" mode: just returns the prompt
         return prompt
+    # stream_generate inherited from BaseLLM (yields full result in one shot)
+
 
 class OpenAIChat(BaseLLM):
     def __init__(self, model: str = "gpt-4o-mini"):
@@ -26,11 +37,25 @@ class OpenAIChat(BaseLLM):
     def generate(self, system: str, prompt: str, max_tokens: int = 512) -> str:
         resp = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role":"system","content":system},{"role":"user","content":prompt}],
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
             temperature=0.2,
             max_tokens=max_tokens,
         )
         return resp.choices[0].message.content.strip()
+
+    def stream_generate(self, system: str, prompt: str, max_tokens: int = 512) -> Iterator[str]:
+        with self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=max_tokens,
+            stream=True,
+        ) as stream:
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+
 
 class AnthropicChat(BaseLLM):
     def __init__(self, model: str = "claude-haiku-4-5-20251001"):
@@ -51,6 +76,16 @@ class AnthropicChat(BaseLLM):
         )
         return resp.content[0].text.strip()
 
+    def stream_generate(self, system: str, prompt: str, max_tokens: int = 512) -> Iterator[str]:
+        with self.client.messages.stream(
+            model=self.model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        ) as stream:
+            for text in stream.text_stream:
+                yield text
+
 
 class HFLocal(BaseLLM):
     def __init__(self, model_id: str = "Qwen/Qwen2.5-0.5B-Instruct"):
@@ -69,3 +104,18 @@ class HFLocal(BaseLLM):
         out = self.mdl.generate(**ids, max_new_tokens=max_tokens, do_sample=False)
         s = self.tok.decode(out[0], skip_special_tokens=True)
         return s.split("<|assistant|>")[-1].strip()
+
+    def stream_generate(self, system: str, prompt: str, max_tokens: int = 512) -> Iterator[str]:
+        from transformers import TextIteratorStreamer
+        import threading
+        text = f"<|system|>\n{system}\n<|user|>\n{prompt}\n<|assistant|>\n"
+        ids = self.tok(text, return_tensors="pt").to(self.device)
+        streamer = TextIteratorStreamer(self.tok, skip_prompt=True, skip_special_tokens=True)
+        t = threading.Thread(
+            target=lambda: self.mdl.generate(**ids, max_new_tokens=max_tokens, do_sample=False, streamer=streamer),
+            daemon=True,
+        )
+        t.start()
+        for chunk in streamer:
+            yield chunk
+        t.join()
